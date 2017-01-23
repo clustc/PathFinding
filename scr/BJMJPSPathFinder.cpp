@@ -4,131 +4,6 @@
 namespace BJMGame
 {
 
-#define _MAX(a, b) ((a)>(b) ? (a) : (b))
-#define _MIN(a, b) ((a)<(b) ? (a) : (b))
-
-bool checkBinaryHeapValid(GridNodeVec& vec)
-{
-	//判断第一个是否为最小值
-	if(vec.empty()) return true;
-	
-	float min_f = vec[0]->f;
-	for(unsigned i = 1; i < vec.size(); ++i)
-	{
-		if(vec[i]->f < min_f)
-		{
-			return false;
-		}
-	}
-	return true;
-}
-
-bool cmp(GridNode* nodeA, GridNode* nodeB)
-{
-	return nodeA->f < nodeB->f;
-}
-
-void percolate_up(GridNodeVec& vec, int index)
-{
-	if(index <= 0) return;
-	int parentIndex;
-	if(index%2 == 0)
-	{
-		parentIndex = index/2 -1;
-	}
-	else
-	{
-		parentIndex = (index - 1) /2;
-	}
-	
-	if(cmp(vec[index], vec[parentIndex]))
-	{
-		//当前节点权值高于父节点权值（f越小权值越高）,则交换
-		GridNode* pTemp = vec[index];
-		vec[index] = vec[parentIndex];
-		vec[parentIndex] = pTemp;
-
-		//递归
-		percolate_up(vec, parentIndex);
-	}
-}
-
-void percolate_down(GridNodeVec& vec, int index)
-{
-	int lfIndex, rtIndex, minIndex;
-	lfIndex = index*2 + 1;
-	rtIndex = lfIndex + 1;
-	if(rtIndex >= (int)vec.size())
-	{
-		if(lfIndex >= (int)vec.size())
-		{
-			return;
-		}
-		else
-		{
-			minIndex = lfIndex;
-		}
-	}
-	else
-	{
-		if(cmp(vec[lfIndex], vec[rtIndex]))
-		{
-			minIndex = lfIndex;
-		}
-		else
-		{
-			minIndex = rtIndex;
-		}
-	}
-
-	if(cmp(vec[minIndex], vec[index]))
-	{
-		GridNode* pTemp = vec[index];
-		vec[index] = vec[minIndex];
-		vec[minIndex] = pTemp;
-
-		percolate_down(vec, minIndex);
-	}
-}
-
-void push(GridNodeVec& vec,GridNode* item)
-{
-	vec.push_back(item);
-	percolate_up(vec, vec.size()-1);
-}
-
-GridNode* pop(GridNodeVec& vec)
-{
-	if(vec.size() < 1) return NULL;
-	GridNode* root = vec[0];
-	vec[0] = vec[vec.size()-1];
-	vec.pop_back();
-	if(vec.size() > 1)
-	{
-		percolate_down(vec, 0);
-	}
-	return root;
-}
-
-void heapify(GridNodeVec& vec, GridNode* item)
-{
-	int index = -1;
-	for(int i = 0; i<(int)vec.size(); ++i)
-	{
-		if(vec[i] == item)
-		{
-			index = i;
-			break;
-		}
-	}
-	if(index != -1)
-	{
-		percolate_down(vec, index);
-		percolate_up(vec, index);
-	}
-}
-
-
 BJMJPSPathFinder::BJMJPSPathFinder(void)
 {
 }
@@ -150,11 +25,10 @@ BJMJPSPathFinder::~BJMJPSPathFinder(void)
 	Otherwise, we add left and right node (perpendicular to the direction
 	of move) in the neighbours list.
 */
-GridNodeVec BJMJPSPathFinder::FindNeighbours( GridNode* node )
+void BJMJPSPathFinder::FindNeighbours(GridNodeVec& vec, GridNode* node)
 {
 	if(node->pParent)
 	{
-		GridNodeVec vec;
 		int x = node->x;
 		int y = node->y;
 
@@ -251,9 +125,12 @@ GridNodeVec BJMJPSPathFinder::FindNeighbours( GridNode* node )
 				}
 			}
 		}
-		return vec;
 	}
-	return BJMPathFinder::FindNeighbours(node);
+	else
+	{
+		BJMPathFinder::FindNeighbours(vec, node);
+	}
+	
 }
 
 GridNode* BJMJPSPathFinder::Jump(GridNode* node, GridNode* parent, GridNode* endNode)
@@ -324,7 +201,9 @@ GridNode* BJMJPSPathFinder::Jump(GridNode* node, GridNode* parent, GridNode* end
 
 void BJMJPSPathFinder::IdentifySuccessors( GridNodeVec& openList, GridNode* node, GridNode* endNode )
 {
-	GridNodeVec neighbours = FindNeighbours(node);
+	GridNodeVec neighbours;
+	neighbours.reserve(BJMGame::MAX_MOVE_DIRECTIONS);
+	FindNeighbours(neighbours, node);
 	for(GridNodeVec::iterator it = neighbours.begin(); it != neighbours.end(); ++it)
 	{
 		GridNode* neighbour = *it;
@@ -356,12 +235,12 @@ void BJMJPSPathFinder::IdentifySuccessors( GridNodeVec& openList, GridNode* node
 	}
 }
 
-bool BJMJPSPathFinder::PathFinding(const cocos2d::Point & from, const cocos2d::Point & to)
+BJMPath* BJMJPSPathFinder::PathFinding(const cocos2d::Point & from, const cocos2d::Point & to)
 {
-	//clear before a new pathfinding
+	
 	if(from.x == to.x && from.y == to.y) return false;
-
-	Clear();
+	//clear before a new pathfinding
+	Reset();
 
 	GridNode* startNode = GetNodeAt(from.x, from.y);
 	GridNode* endNode = GetNodeAt(to.x, to.y);
@@ -380,14 +259,12 @@ bool BJMJPSPathFinder::PathFinding(const cocos2d::Point & from, const cocos2d::P
 		if(node == endNode)
 		{
 			FillPath(endNode);
-			PrintPath(endNode);
-			return true;
+			return PrintPath(endNode);
 		}
 		IdentifySuccessors(openList, node, endNode);
 	}
 
-	return false;
-
+	return NULL;
 }
 
 BJMJPSPathFinder* BJMJPSPathFinder::Create(int width, int height)
